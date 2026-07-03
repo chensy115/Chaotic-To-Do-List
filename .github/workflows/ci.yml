@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run icons
+      - name: Verify static assets
+        run: |
+          test -f public/og.png
+          test -f public/pwa-192.png
+          test -f public/pwa-512.png
+      - run: npm run build
