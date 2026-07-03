@@ -18,7 +18,8 @@ import { useStats } from './hooks/useStats'
 import { useTasks } from './hooks/useTasks'
 import type { Stats, Task } from './types'
 import { getEventRoast } from './utils/aiRoast'
-import { isApiConfigured, loadApiConfig, type ApiConfig } from './utils/apiConfig'
+import { loadApiConfig, saveApiConfig, canUseAi, aiProviderLabel, type ApiConfig } from './utils/apiConfig'
+import { fetchServerAiStatus, type ServerAiStatus } from './utils/serverAi'
 import { sortActiveTasksByRot } from './utils/sortTasks'
 import {
   applyTheme,
@@ -83,6 +84,7 @@ export default function App() {
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>(() => loadDailySnapshots())
   const [challenge, setChallenge] = useState<DailyChallenge>(() => getOrCreateDailyChallenge())
   const [challengeDismissed, setChallengeDismissed] = useState(false)
+  const [serverAi, setServerAi] = useState<ServerAiStatus | null>(null)
 
   const flashMood = useCallback((mood: MascotMood, ms = 2000) => {
     setMoodOverride(mood)
@@ -131,6 +133,18 @@ export default function App() {
   }, [stats, tasks, notifyNewBadges])
 
   usePwaInstallHint(setToast)
+
+  useEffect(() => {
+    fetchServerAiStatus().then((status) => {
+      setServerAi(status)
+      if (!status.available) return
+      const cfg = loadApiConfig()
+      if (cfg.enabled) return
+      const next = { ...cfg, enabled: true }
+      saveApiConfig(next)
+      setApiConfig(next)
+    })
+  }, [])
 
   const pushBattleReport = useCallback(
     (text: string, taskId?: string) => {
@@ -306,7 +320,7 @@ export default function App() {
     }
   }
 
-  const aiConnected = isApiConfigured(apiConfig)
+  const aiConnected = canUseAi(apiConfig, serverAi)
   const showActions =
     !chat.loading && chat.chatMessages.some((m) => m.role === 'ai') && !!chat.pendingTask
   const streamingRoast = chat.loading && !!chat.roast
@@ -325,7 +339,7 @@ export default function App() {
             <span className={`status-badge ${aiConnected ? 'is-live' : ''}`}>
               <span className="status-dot" />
               {aiConnected
-                ? `AI · ${apiConfig.provider === 'custom' ? apiConfig.model : apiConfig.provider}`
+                ? `AI · ${aiProviderLabel(apiConfig, serverAi)}`
                 : '本地抬杠'}
             </span>
             <button
@@ -535,6 +549,7 @@ export default function App() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onSaved={setApiConfig}
+        serverAi={serverAi}
       />
 
       <ConfettiBurst burst={confettiBurst} />

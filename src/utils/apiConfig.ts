@@ -1,4 +1,5 @@
 import type { PersonalityId } from '../types'
+import type { ServerAiStatus } from './serverAi'
 import { isValidPersonality } from './personality'
 
 export type ApiProvider = 'openai' | 'deepseek' | 'qwen' | 'moonshot' | 'custom'
@@ -105,8 +106,48 @@ export function saveApiConfig(config: ApiConfig): void {
   )
 }
 
-export function isApiConfigured(config: ApiConfig): boolean {
+export function isUserApiConfigured(config: ApiConfig): boolean {
   return config.enabled && !!config.apiKey.trim() && !!config.baseUrl.trim() && !!config.model.trim()
+}
+
+/** @deprecated 使用 canUseAi */
+export function isApiConfigured(config: ApiConfig): boolean {
+  return isUserApiConfigured(config)
+}
+
+/** 服务端托管或用户自配 Key 时均可使用 AI */
+export function canUseAi(config: ApiConfig, serverAi?: ServerAiStatus | null): boolean {
+  if (!config.enabled) return false
+  if (serverAi?.available) return true
+  return isUserApiConfigured(config)
+}
+
+/** 合并服务端与用户配置，供请求头 / Qwen 判断使用 */
+export function resolveEffectiveApiConfig(
+  config: ApiConfig,
+  serverAi?: ServerAiStatus | null
+): ApiConfig {
+  if (isUserApiConfigured(config)) return config
+  if (!serverAi?.available) return config
+
+  return {
+    ...config,
+    enabled: true,
+    provider: 'custom',
+    apiKey: '',
+    baseUrl: serverAi.baseUrl || PROVIDER_PRESETS.deepseek.baseUrl,
+    model: serverAi.model || PROVIDER_PRESETS.deepseek.model,
+  }
+}
+
+export function aiProviderLabel(config: ApiConfig, serverAi?: ServerAiStatus | null): string {
+  if (isUserApiConfigured(config)) {
+    return config.provider === 'custom' ? config.model : config.provider
+  }
+  if (serverAi?.available) {
+    return serverAi.provider || serverAi.model || '托管'
+  }
+  return '本地'
 }
 
 export function applyProviderPreset(provider: ApiProvider, current: ApiConfig): ApiConfig {

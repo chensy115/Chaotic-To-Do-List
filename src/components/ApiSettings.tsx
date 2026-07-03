@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import type { PersonalityId } from '../types'
 import {
   applyProviderPreset,
+  canUseAi,
   isQwenLike,
   isSlowQwenModel,
+  isUserApiConfigured,
   loadApiConfig,
   maskApiKey,
   PROVIDER_PRESETS,
@@ -11,6 +13,7 @@ import {
   type ApiConfig,
   type ApiProvider,
 } from '../utils/apiConfig'
+import type { ServerAiStatus } from '../utils/serverAi'
 import { PERSONALITY_OPTIONS } from '../utils/personality'
 import { testApiConnection } from '../utils/aiRoast'
 
@@ -18,17 +21,22 @@ interface Props {
   open: boolean
   onClose: () => void
   onSaved: (config: ApiConfig) => void
+  serverAi?: ServerAiStatus | null
 }
 
-export function ApiSettings({ open, onClose, onSaved }: Props) {
+export function ApiSettings({ open, onClose, onSaved, serverAi }: Props) {
   const [config, setConfig] = useState<ApiConfig>(loadApiConfig)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [showByok, setShowByok] = useState(false)
+
+  const hosted = Boolean(serverAi?.available && !isUserApiConfigured(config))
 
   useEffect(() => {
     if (open) {
       setConfig(loadApiConfig())
       setTestResult(null)
+      setShowByok(isUserApiConfigured(loadApiConfig()))
     }
   }, [open])
 
@@ -71,6 +79,12 @@ export function ApiSettings({ open, onClose, onSaved }: Props) {
         </div>
 
         <div className="modal-body">
+          {hosted && (
+            <div className="test-result ok hosted-ai-banner">
+              ✓ AI 已由站长托管（{serverAi?.provider || serverAi?.model}），访客无需配置 Key 即可使用
+            </div>
+          )}
+
           <label className="field-toggle">
             <input
               type="checkbox"
@@ -80,71 +94,81 @@ export function ApiSettings({ open, onClose, onSaved }: Props) {
             <span>启用真实 AI 抬杠</span>
           </label>
 
-          <label className="field">
-            <span>服务商</span>
-            <select
-              value={config.provider}
-              onChange={(e) => handleProviderChange(e.target.value as ApiProvider)}
-            >
-              {Object.entries(PROVIDER_PRESETS).map(([key, preset]) => (
-                <option key={key} value={key}>
-                  {preset.label}
-                </option>
-              ))}
-              <option value="custom">自定义</option>
-            </select>
-            {config.provider !== 'custom' && (
-              <small>{PROVIDER_PRESETS[config.provider].hint}</small>
-            )}
-          </label>
+          {(showByok || !hosted) && (
+            <>
+              <label className="field">
+                <span>服务商</span>
+                <select
+                  value={config.provider}
+                  onChange={(e) => handleProviderChange(e.target.value as ApiProvider)}
+                >
+                  {Object.entries(PROVIDER_PRESETS).map(([key, preset]) => (
+                    <option key={key} value={key}>
+                      {preset.label}
+                    </option>
+                  ))}
+                  <option value="custom">自定义</option>
+                </select>
+                {config.provider !== 'custom' && (
+                  <small>{PROVIDER_PRESETS[config.provider].hint}</small>
+                )}
+              </label>
 
-          <label className="field">
-            <span>API Key</span>
-            <input
-              type="password"
-              value={config.apiKey}
-              onChange={(e) => {
-                setConfig({ ...config, apiKey: e.target.value })
-                setTestResult(null)
-              }}
-              placeholder="sk-..."
-              autoComplete="off"
-            />
-            {config.apiKey && (
-              <small>已保存预览：{maskApiKey(config.apiKey)}</small>
-            )}
-          </label>
+              <label className="field">
+                <span>API Key</span>
+                <input
+                  type="password"
+                  value={config.apiKey}
+                  onChange={(e) => {
+                    setConfig({ ...config, apiKey: e.target.value })
+                    setTestResult(null)
+                  }}
+                  placeholder="sk-..."
+                  autoComplete="off"
+                />
+                {config.apiKey && (
+                  <small>已保存预览：{maskApiKey(config.apiKey)}</small>
+                )}
+              </label>
 
-          <label className="field">
-            <span>Base URL</span>
-            <input
-              type="url"
-              value={config.baseUrl}
-              onChange={(e) => {
-                setConfig({ ...config, baseUrl: e.target.value, provider: 'custom' })
-                setTestResult(null)
-              }}
-              placeholder="https://api.deepseek.com/v1"
-            />
-          </label>
+              <label className="field">
+                <span>Base URL</span>
+                <input
+                  type="url"
+                  value={config.baseUrl}
+                  onChange={(e) => {
+                    setConfig({ ...config, baseUrl: e.target.value, provider: 'custom' })
+                    setTestResult(null)
+                  }}
+                  placeholder="https://api.deepseek.com/v1"
+                />
+              </label>
 
-          <label className="field">
-            <span>模型</span>
-            <input
-              type="text"
-              value={config.model}
-              onChange={(e) => {
-                setConfig({ ...config, model: e.target.value, provider: 'custom' })
-                setTestResult(null)
-              }}
-              placeholder="qwen-flash"
-            />
-            {isQwenLike(config) && isSlowQwenModel(config.model) && (
-              <small className="warn-text">
-                ⚠️ {config.model} 是大模型，响应偏慢。抬杠场景推荐 qwen-flash 或 qwen-turbo
-              </small>
-            )}
-          </label>
+              <label className="field">
+                <span>模型</span>
+                <input
+                  type="text"
+                  value={config.model}
+                  onChange={(e) => {
+                    setConfig({ ...config, model: e.target.value, provider: 'custom' })
+                    setTestResult(null)
+                  }}
+                  placeholder="qwen-flash"
+                />
+                {isQwenLike(config) && isSlowQwenModel(config.model) && (
+                  <small className="warn-text">
+                    ⚠️ {config.model} 是大模型，响应偏慢。抬杠场景推荐 qwen-flash 或 qwen-turbo
+                  </small>
+                )}
+              </label>
+            </>
+          )}
+
+          {hosted && !showByok && (
+            <button type="button" className="btn btn-soft btn-block" onClick={() => setShowByok(true)}>
+              高级：使用自己的 API Key
+            </button>
+          )}
 
           <div className="field">
             <span>NPC 人格</span>
@@ -168,7 +192,7 @@ export function ApiSettings({ open, onClose, onSaved }: Props) {
             </div>
           </div>
 
-          {isQwenLike(config) && (
+          {isQwenLike(config) && (showByok || !hosted) && (
             <label className="field-toggle">
               <input
                 type="checkbox"
@@ -201,13 +225,14 @@ export function ApiSettings({ open, onClose, onSaved }: Props) {
           )}
 
           <p className="modal-note">
-            Key 保存在浏览器 localStorage，经本地代理转发，不会暴露给第三方网站。
-            也可在项目根目录创建 <code>.env</code> 配置 <code>VITE_OPENAI_API_KEY</code>。
+            {hosted
+              ? '访客直接使用站长配置的 AI；Key 存在服务端，不会出现在浏览器里。'
+              : '自配 Key 时保存在浏览器 localStorage，经 /api/roast 代理转发。也可在 Vercel 配置 ROAST_API_KEY 供所有人使用。'}
           </p>
         </div>
 
         <div className="modal-footer">
-          <button type="button" className="btn btn-soft" onClick={handleTest} disabled={testing}>
+          <button type="button" className="btn btn-soft" onClick={handleTest} disabled={testing || !canUseAi(config, serverAi)}>
             {testing ? '测试中…' : '测试连接'}
           </button>
           <button type="button" className="btn btn-accent" onClick={handleSave}>

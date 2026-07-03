@@ -30,14 +30,24 @@ async function handleRoastProxy(req: IncomingMessage, res: ServerResponse) {
     return
   }
 
-  const apiKey = req.headers['x-api-key'] as string | undefined
-  const baseUrl = ((req.headers['x-api-base-url'] as string) || 'https://api.openai.com/v1').replace(/\/$/, '')
-  const model = (req.headers['x-api-model'] as string) || 'gpt-4o-mini'
+  const clientKey = req.headers['x-api-key'] as string | undefined
+  const serverKey = process.env.ROAST_API_KEY?.trim()
+  const apiKey = clientKey?.trim() || serverKey
+
+  const baseUrl = (
+    (req.headers['x-api-base-url'] as string | undefined) ||
+    process.env.ROAST_API_BASE_URL ||
+    'https://api.deepseek.com/v1'
+  ).replace(/\/$/, '')
+  const model =
+    (req.headers['x-api-model'] as string | undefined) ||
+    process.env.ROAST_API_MODEL ||
+    'deepseek-chat'
 
   if (!apiKey?.trim()) {
     res.statusCode = 401
     res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ error: { message: '缺少 API Key' } }))
+    res.end(JSON.stringify({ error: { message: '未配置 AI：请在 .env 设置 ROAST_API_KEY，或由用户填入 Key' } }))
     return
   }
 
@@ -90,10 +100,44 @@ async function handleRoastProxy(req: IncomingMessage, res: ServerResponse) {
   }
 }
 
+function handleAiStatus(_req: IncomingMessage, res: ServerResponse) {
+  const serverKey = process.env.ROAST_API_KEY?.trim()
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+
+  if (!serverKey) {
+    res.end(JSON.stringify({ available: false }))
+    return
+  }
+
+  res.end(
+    JSON.stringify({
+      available: true,
+      provider: process.env.ROAST_PROVIDER || 'deepseek',
+      model: process.env.ROAST_API_MODEL || 'deepseek-chat',
+      baseUrl: (process.env.ROAST_API_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/$/, ''),
+    })
+  )
+}
+
 /** 开发/预览时通过本地代理转发，避免浏览器 CORS 限制 */
 export function roastProxy(): Plugin {
-  const attach = (server: { middlewares: { use: (path: string, handler: typeof handleRoastProxy) => void } }) => {
-    server.middlewares.use('/api/roast', handleRoastProxy)
+  const attach = (server: {
+    middlewares: {
+      use: (path: string, handler: (req: IncomingMessage, res: ServerResponse, next: () => void) => void) => void
+    }
+  }) => {
+    server.middlewares.use('/api/ai-status', (req, res, next) => {
+      if (req.method === 'GET') {
+        handleAiStatus(req, res)
+        return
+      }
+      next()
+    })
+    server.middlewares.use('/api/roast', (req, res, next) => {
+      void handleRoastProxy(req, res).catch(next)
+    })
   }
 
   return {

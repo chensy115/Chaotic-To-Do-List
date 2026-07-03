@@ -1,8 +1,16 @@
 import type { RoastContext } from '../types'
-import { isQwenLike, loadApiConfig, isApiConfigured, type ApiConfig } from './apiConfig'
+import {
+  isQwenLike,
+  isUserApiConfigured,
+  loadApiConfig,
+  canUseAi,
+  resolveEffectiveApiConfig,
+  type ApiConfig,
+} from './apiConfig'
 import { generateRoast } from './roastEngine'
 import { buildRoastMessages } from './prompts'
 import { cancelStreamText, streamText } from './streamText'
+import { getServerAiStatus } from './serverAi'
 
 export interface RoastResult {
   text: string
@@ -60,6 +68,16 @@ function parseSseChunk(line: string): SseDelta {
   }
 }
 
+function buildRoastHeaders(config: ApiConfig): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (isUserApiConfigured(config)) {
+    headers['X-API-Key'] = config.apiKey.trim()
+    headers['X-API-Base-URL'] = config.baseUrl.replace(/\/$/, '')
+    headers['X-API-Model'] = config.model.trim()
+  }
+  return headers
+}
+
 async function callRealApiStream(
   ctx: RoastContext,
   config: ApiConfig,
@@ -67,12 +85,7 @@ async function callRealApiStream(
 ): Promise<RoastResult> {
   const res = await fetch('/api/roast', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-Key': config.apiKey.trim(),
-      'X-API-Base-URL': config.baseUrl.replace(/\/$/, ''),
-      'X-API-Model': config.model.trim(),
-    },
+    headers: buildRoastHeaders(config),
     body: JSON.stringify(buildRequestBody(ctx, config, true)),
   })
 
@@ -141,9 +154,10 @@ export async function getRoast(
   ctx: RoastContext,
   onChunk?: (text: string) => void
 ): Promise<RoastResult> {
-  const config = loadApiConfig()
+  const serverAi = getServerAiStatus()
+  const config = resolveEffectiveApiConfig(loadApiConfig(), serverAi)
 
-  if (!isApiConfigured(config)) {
+  if (!canUseAi(loadApiConfig(), serverAi)) {
     return deliverLocalRoast(ctx, onChunk)
   }
 
@@ -164,8 +178,9 @@ export async function getRoast(
 /** 战场事件旁白（完成 / 甩锅）；默认本地，开启 fullAiMode 且已配置 AI 时走 API */
 export async function getEventRoast(ctx: RoastContext): Promise<RoastResult> {
   cancelStreamText()
-  const config = loadApiConfig()
-  const useAi = isApiConfigured(config) && config.fullAiMode && ctx.event
+  const serverAi = getServerAiStatus()
+  const userConfig = loadApiConfig()
+  const useAi = canUseAi(userConfig, serverAi) && userConfig.fullAiMode && ctx.event
 
   if (!useAi) {
     return deliverLocalRoast({ ...ctx, attemptCount: 1 })
@@ -176,8 +191,11 @@ export async function getEventRoast(ctx: RoastContext): Promise<RoastResult> {
 
 /** 测试 API 连通性 */
 export async function testApiConnection(config: ApiConfig): Promise<{ ok: boolean; message: string }> {
-  if (!isApiConfigured(config)) {
-    return { ok: false, message: '请先填写完整的 API 配置' }
+  const serverAi = getServerAiStatus()
+  const effective = resolveEffectiveApiConfig(config, serverAi)
+
+  if (!canUseAi(config, serverAi)) {
+    return { ok: false, message: '请先启用 AI，或在 Vercel 配置 ROAST_API_KEY' }
   }
 
   const t0 = performance.now()
@@ -185,18 +203,13 @@ export async function testApiConnection(config: ApiConfig): Promise<{ ok: boolea
   try {
     const res = await fetch('/api/roast', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': config.apiKey.trim(),
-        'X-API-Base-URL': config.baseUrl.replace(/\/$/, ''),
-        'X-API-Model': config.model.trim(),
-      },
+      headers: buildRoastHeaders(effective),
       body: JSON.stringify({
         messages: [{ role: 'user', content: '回复一个字：好' }],
         max_tokens: 5,
         temperature: 0,
         stream: false,
-        ...(isQwenLike(config) ? { enable_thinking: false } : {}),
+        ...(isQwenLike(effective) ? { enable_thinking: false } : {}),
       }),
     })
 

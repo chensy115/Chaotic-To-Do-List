@@ -1313,6 +1313,13 @@ body {
   color: var(--danger);
 }
 
+.hosted-ai-banner { margin-bottom: var(--s3); }
+
+.btn-block {
+  width: 100%;
+  margin-bottom: var(--s3);
+}
+
 .modal-note {
   font-size: 0.68rem;
   color: var(--text-muted);

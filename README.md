@@ -19,26 +19,25 @@ npm run dev
 
 ## 接入真实 AI
 
-### 方式一：界面配置（推荐）
+### 方式一：部署托管（推荐给访客使用）
+
+部署到 Vercel 并在环境变量配置 `ROAST_API_KEY`，**访客无需自配 Key** 即可使用 AI。详见 [docs/deploy/vercel.md](docs/deploy/vercel.md)。
+
+### 方式二：界面自配 Key（本地 / BYOK）
 
 1. 启动应用后，点击右上角 **「⚙️ AI 配置」**
-2. 选择服务商（DeepSeek / OpenAI / 通义千问 / Moonshot）
-3. 填入 API Key，点击 **「测试连接」**
-4. 勾选「启用真实 AI 抬杠」，保存
+2. 选择服务商，填入 API Key，点击 **「测试连接」**
+3. 勾选「启用真实 AI 抬杠」，保存
 
-Key 存在浏览器 localStorage，请求经 **本地代理** `/api/roast` 转发，避免 CORS 问题。
-
-### 方式二：`.env` 环境变量
-
-复制 `.env.example` 为 `.env` 并填入 Key：
+### 方式三：本地 `.env` 服务端 Key
 
 ```env
-VITE_OPENAI_API_KEY=sk-xxx
-VITE_OPENAI_BASE_URL=https://api.deepseek.com/v1
-VITE_OPENAI_MODEL=deepseek-chat
+ROAST_API_KEY=sk-xxx
+ROAST_API_BASE_URL=https://api.deepseek.com/v1
+ROAST_API_MODEL=deepseek-chat
 ```
 
-修改后需重启 `npm run dev`。
+重启 `npm run dev` 后，本地也会模拟「托管模式」。
 
 ### 支持的服务商
 
@@ -51,7 +50,7 @@ VITE_OPENAI_MODEL=deepseek-chat
 
 任何 OpenAI 兼容接口均可，选「自定义」填入 Base URL 和模型名即可。
 
-> **注意**：`npm run dev` 和 `npm run preview` 自带 API 代理。若部署静态文件到纯 CDN，需自行配置后端代理（见 [docs/deploy/vercel.md](docs/deploy/vercel.md)）。
+> **注意**：`npm run dev` 和 `npm run preview` 自带 API 代理。公开部署请用 Vercel（见 [docs/deploy/vercel.md](docs/deploy/vercel.md)）。
 
 ## 数据与 V2/V3 功能
 

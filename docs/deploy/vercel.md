@@ -1,20 +1,61 @@
-# Vercel 部署示例
+# Vercel 部署指南
 
-将静态前端与 API 代理一起部署到 Vercel，解决纯 CDN 无法调用 AI 的问题。
+让其他人**不用配置 API Key** 也能用真实 AI：Key 只存在 Vercel 服务端。
 
 ## 步骤
 
-1. 复制 `examples/vercel-api/api/roast.ts` 到项目根目录的 `api/roast.ts`
-2. 安装可选类型（本地开发时）：`npm i -D @vercel/node`
-3. 构建前端：`npm run build`
-4. 在 Vercel 创建项目，Build Command 为 `npm run build`，Output Directory 为 `dist`
-5. 部署后，前端请求 `/api/roast` 会由 Serverless 函数转发
+1. 把仓库推到 GitHub（已完成）
+2. 打开 [vercel.com](https://vercel.com) → **Add New → Project** → 选择 `Chaotic-To-Do-List`
+3. Build 设置保持默认：
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+4. 展开 **Environment Variables**，添加：
 
-## 安全说明
+| 变量名 | 示例值 | 说明 |
+|--------|--------|------|
+| `ROAST_API_KEY` | `sk-xxx` | **必填**，你的 DeepSeek / OpenAI Key |
+| `ROAST_API_BASE_URL` | `https://api.deepseek.com/v1` | 可选，默认 DeepSeek |
+| `ROAST_API_MODEL` | `deepseek-chat` | 可选 |
+| `ROAST_PROVIDER` | `deepseek` | 可选，仅用于界面显示 |
 
-- API Key 仍由浏览器经 Header 传入（与本地 dev 一致），适合个人玩具项目
-- 若需更高安全性，可改为服务端环境变量 `ROAST_API_KEY`，并移除客户端传 Key 逻辑
+5. 点 **Deploy**
+
+## 部署后行为
+
+- 访客打开网站 → 自动检测到服务端 AI → **直接可用**，无需填 Key
+- 右上角显示 `AI · deepseek`（或你设的 provider）
+- AI 配置里可改 **NPC 人格**、**全程 AI** 等偏好
+- 高级用户仍可展开「使用自己的 API Key」
+
+## 本地开发（模拟托管模式）
+
+复制 `.env.example` 为 `.env`，填入 `ROAST_API_KEY`（**不要**加 `VITE_` 前缀）：
+
+```env
+ROAST_API_KEY=sk-xxx
+ROAST_API_BASE_URL=https://api.deepseek.com/v1
+ROAST_API_MODEL=deepseek-chat
+```
+
+然后 `npm run dev`，效果与线上一致。
+
+## 架构
+
+```
+访客浏览器 ──POST /api/roast──► Vercel Serverless (api/roast.ts)
+                                      │
+                                      ▼ ROAST_API_KEY（环境变量）
+                                 DeepSeek / OpenAI …
+```
+
+`GET /api/ai-status` 只返回 `{ available: true, provider, model }`，**不暴露 Key**。
+
+## 费用与安全
+
+- Key 在服务端，访客看不到，但**所有访客共用你的 Key 额度**
+- 建议在 AI 平台设置用量上限 / 余额告警
+- 公开给大量用户时，可考虑后续加速率限制
 
 ## Cloudflare Workers
 
-逻辑与 `vite-plugin-roast-proxy.ts` 相同，将 `fetch` 转发到 OpenAI 兼容接口即可。Workers 需自行处理 SSE 流式响应。
+逻辑与 `vite-plugin-roast-proxy.ts` 相同，读取 `ROAST_API_KEY` 环境变量转发即可。
