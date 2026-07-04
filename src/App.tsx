@@ -319,9 +319,22 @@ export default function App() {
 
   const aiConnected = canUseAi(apiConfig, serverAi)
   const showAiBadge = shouldShowAiBadge(apiConfig, serverAi)
-  const showActions =
-    !chat.loading && chat.chatMessages.some((m) => m.role === 'ai') && !!chat.pendingTask
+  const hasAiReply = chat.chatMessages.some((m) => m.role === 'ai')
+  const showRecovery = !!chat.pendingTask && !chat.loading && !hasAiReply
+  const showActions = !chat.loading && hasAiReply && !!chat.pendingTask
   const streamingRoast = chat.loading && !!chat.roast
+
+  const handleRetryRoast = () => {
+    if (!chat.pendingTask) return
+    chat.dismissSessionBanner()
+    void chat.requestRoast(chat.pendingTask, chat.attemptCount || 1)
+  }
+
+  const handleAbandonStuck = () => {
+    chat.clearChat()
+    chat.setInput('')
+    chat.dismissSessionBanner()
+  }
 
   return (
     <div className="site">
@@ -372,12 +385,28 @@ export default function App() {
         />
       )}
 
-      {chat.sessionRestored && (
+      {(chat.sessionRestored || showRecovery) && (
         <div className="session-banner container">
-          <span>你还有一场未完的抬杠（{chat.pendingTask}）</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={chat.dismissSessionBanner}>
-            知道了
-          </button>
+          <span>
+            {showRecovery ? '抬杠请求未完成' : '你还有一场未完的抬杠'}（{chat.pendingTask}）
+          </span>
+          <div className="session-banner-actions">
+            {showRecovery && (
+              <>
+                <button type="button" className="btn btn-accent btn-sm" onClick={handleRetryRoast}>
+                  重新请求
+                </button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={handleAbandonStuck}>
+                  放弃
+                </button>
+              </>
+            )}
+            {!showRecovery && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={chat.dismissSessionBanner}>
+                知道了
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -425,10 +454,13 @@ export default function App() {
                   streaming={streamingRoast}
                   attemptCount={chat.attemptCount}
                   showActions={showActions}
+                  showRecovery={showRecovery}
                   moodOverride={moodOverride}
                   timelineEntries={timelineEntries}
                   onDismiss={handleDismiss}
                   onForceAdd={handleForceAdd}
+                  onRetry={handleRetryRoast}
+                  onAbandon={handleAbandonStuck}
                 />
 
                 {chat.apiError && <p className="api-error">{chat.apiError}</p>}

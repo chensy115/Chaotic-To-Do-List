@@ -1,3 +1,7 @@
+import { withTimeout } from './withTimeout'
+
+const STATUS_TIMEOUT_MS = 10_000
+
 export interface ServerAiStatus {
   available: boolean
   provider?: string
@@ -18,7 +22,10 @@ export async function fetchServerAiStatus(): Promise<ServerAiStatus> {
 
   inflight = (async () => {
     try {
-      const res = await fetch('/api/ai-status', { cache: 'no-store' })
+      const res = await withTimeout(
+        fetch('/api/ai-status', { cache: 'no-store' }),
+        STATUS_TIMEOUT_MS
+      )
       if (!res.ok) {
         return { available: false }
       }

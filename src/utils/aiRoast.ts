@@ -11,6 +11,9 @@ import { generateRoast } from './roastEngine'
 import { buildRoastMessages } from './prompts'
 import { cancelStreamText, streamText } from './streamText'
 import { getServerAiStatus, fetchServerAiStatus } from './serverAi'
+import { withTimeout } from './withTimeout'
+
+const ROAST_TIMEOUT_MS = 45_000
 
 export interface RoastResult {
   text: string
@@ -164,7 +167,10 @@ export async function getRoast(
   }
 
   try {
-    return await callRealApiStream(ctx, config, onChunk ?? (() => {}))
+    return await withTimeout(
+      callRealApiStream(ctx, config, onChunk ?? (() => {})),
+      ROAST_TIMEOUT_MS
+    )
   } catch (err) {
     const message = err instanceof Error ? err.message : '未知错误'
     const result = await deliverLocalRoast(ctx, onChunk)

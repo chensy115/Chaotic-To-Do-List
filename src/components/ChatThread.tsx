@@ -19,10 +19,13 @@ interface Props {
   streaming: boolean
   attemptCount: number
   showActions: boolean
+  showRecovery?: boolean
   moodOverride?: MascotMood | null
   timelineEntries: TimelineEntry[]
   onDismiss: () => void
   onForceAdd: () => void
+  onRetry?: () => void
+  onAbandon?: () => void
 }
 
 const IDLE_LINES = [
@@ -72,10 +75,13 @@ export function ChatThread({
   streaming,
   attemptCount,
   showActions,
+  showRecovery = false,
   moodOverride,
   timelineEntries,
   onDismiss,
   onForceAdd,
+  onRetry,
+  onAbandon,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState<MessageFilter>('all')
@@ -167,6 +173,20 @@ export function ChatThread({
               </div>
             )}
           </div>
+
+          {showRecovery && (
+            <div className="chat-recovery animate-in">
+              <p className="chat-recovery-text">请求未完成，你可以重新请求或放弃这场抬杠</p>
+              <div className="chat-chips">
+                <button type="button" className="chip chip-accent" onClick={onRetry}>
+                  重新请求
+                </button>
+                <button type="button" className="chip chip-soft" onClick={onAbandon}>
+                  放弃
+                </button>
+              </div>
+            </div>
+          )}
 
           {showActions && (
             <div className="chat-chips animate-in">
