@@ -1,7 +1,7 @@
-const { resolveRequestConfig, readBody } = require('./_shared.cjs')
+import { resolveRequestConfig, readBody } from './_shared.js'
 
 /** Vercel Serverless 代理 — 支持服务端 ROAST_API_KEY 或客户端 BYOK */
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.statusCode = 204
     res.setHeader('Access-Control-Allow-Origin', '*')

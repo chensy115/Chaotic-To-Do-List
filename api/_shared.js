@@ -1,5 +1,4 @@
-/** 服务端 AI 配置解析 — 供 api/*.cjs 共用 */
-function resolveServerConfig() {
+export function resolveServerConfig() {
   const apiKey = process.env.ROAST_API_KEY?.trim()
   if (!apiKey) return null
 
@@ -11,7 +10,7 @@ function resolveServerConfig() {
   }
 }
 
-function resolveRequestConfig(req) {
+export function resolveRequestConfig(req) {
   const clientKey = (req.headers['x-api-key'] || '').trim()
   const clientBase = (req.headers['x-api-base-url'] || '').replace(/\/$/, '')
   const clientModel = (req.headers['x-api-model'] || '').trim()
@@ -34,7 +33,7 @@ function resolveRequestConfig(req) {
   }
 }
 
-function readBody(req) {
+export function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = ''
     req.on('data', (chunk) => {
@@ -44,5 +43,3 @@ function readBody(req) {
     req.on('error', reject)
   })
 }
-
-module.exports = { resolveServerConfig, resolveRequestConfig, readBody }

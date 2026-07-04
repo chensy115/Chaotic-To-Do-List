@@ -1,7 +1,7 @@
-const { resolveServerConfig } = require('./_shared.cjs')
+import { resolveServerConfig } from './_shared.js'
 
 /** 公开接口：告知前端是否已有服务端托管 AI（不暴露 Key） */
-module.exports = function handler(_req, res) {
+export default function handler(_req, res) {
   const server = resolveServerConfig()
 
   res.setHeader('Access-Control-Allow-Origin', '*')
