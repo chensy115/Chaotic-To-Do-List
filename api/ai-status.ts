@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { resolveServerConfig } from './roast'
+import { resolveServerConfig } from './lib/serverConfig'
 
 /**
  * 公开接口：告知前端是否已有服务端托管 AI（不暴露 Key）
