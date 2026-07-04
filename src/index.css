@@ -187,6 +187,7 @@ body {
 }
 
 .status-badge.is-live { color: var(--neon-cyan); border-color: var(--border-strong); }
+.status-badge.is-hosted { color: var(--neon-yellow); border-color: rgba(255, 190, 11, 0.35); }
 
 .status-dot {
   width: 6px;

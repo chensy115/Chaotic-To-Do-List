@@ -2,10 +2,12 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import {
   aiProviderLabel,
   canUseAi,
+  hasHostedAi,
   isUserApiConfigured,
   loadApiConfig,
   resolveEffectiveApiConfig,
   saveApiConfig,
+  shouldShowAiBadge,
 } from './apiConfig'
 import type { ServerAiStatus } from './serverAi'
 
@@ -42,5 +44,12 @@ describe('hosted AI helpers', () => {
   it('aiProviderLabel shows hosted provider', () => {
     const cfg = { ...loadApiConfig(), enabled: true, apiKey: '' }
     expect(aiProviderLabel(cfg, serverAi)).toBe('deepseek')
+  })
+
+  it('shouldShowAiBadge when hosted even if enabled false', () => {
+    const cfg = { ...loadApiConfig(), enabled: false, apiKey: '' }
+    expect(hasHostedAi(serverAi)).toBe(true)
+    expect(canUseAi(cfg, serverAi)).toBe(false)
+    expect(shouldShowAiBadge(cfg, serverAi)).toBe(true)
   })
 })

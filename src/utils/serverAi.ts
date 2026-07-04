@@ -18,10 +18,9 @@ export async function fetchServerAiStatus(): Promise<ServerAiStatus> {
 
   inflight = (async () => {
     try {
-      const res = await fetch('/api/ai-status')
+      const res = await fetch('/api/ai-status', { cache: 'no-store' })
       if (!res.ok) {
-        cached = { available: false }
-        return cached
+        return { available: false }
       }
       const data = (await res.json()) as ServerAiStatus
       cached = {
@@ -32,8 +31,7 @@ export async function fetchServerAiStatus(): Promise<ServerAiStatus> {
       }
       return cached
     } catch {
-      cached = { available: false }
-      return cached
+      return { available: false }
     } finally {
       inflight = null
     }
