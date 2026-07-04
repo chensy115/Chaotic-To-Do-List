@@ -1,5 +1,5 @@
-/** 服务端 AI 配置（Vercel 环境变量 / 本地 .env） */
-export function resolveServerConfig() {
+/** 服务端 AI 配置解析 — 供 api/*.cjs 共用 */
+function resolveServerConfig() {
   const apiKey = process.env.ROAST_API_KEY?.trim()
   if (!apiKey) return null
 
@@ -11,12 +11,10 @@ export function resolveServerConfig() {
   }
 }
 
-export function resolveRequestConfig(req: {
-  headers: Record<string, string | string[] | undefined>
-}) {
-  const clientKey = (req.headers['x-api-key'] as string | undefined)?.trim()
-  const clientBase = (req.headers['x-api-base-url'] as string | undefined)?.replace(/\/$/, '')
-  const clientModel = (req.headers['x-api-model'] as string | undefined)?.trim()
+function resolveRequestConfig(req) {
+  const clientKey = (req.headers['x-api-key'] || '').trim()
+  const clientBase = (req.headers['x-api-base-url'] || '').replace(/\/$/, '')
+  const clientModel = (req.headers['x-api-model'] || '').trim()
 
   if (clientKey) {
     return {
@@ -35,3 +33,16 @@ export function resolveRequestConfig(req: {
     model: server.model,
   }
 }
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = ''
+    req.on('data', (chunk) => {
+      data += chunk.toString()
+    })
+    req.on('end', () => resolve(data))
+    req.on('error', reject)
+  })
+}
+
+module.exports = { resolveServerConfig, resolveRequestConfig, readBody }

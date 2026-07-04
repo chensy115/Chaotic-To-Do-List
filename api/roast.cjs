@@ -1,29 +1,35 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { resolveRequestConfig } from './lib/serverConfig'
+const { resolveRequestConfig, readBody } = require('./_shared.cjs')
 
-/**
- * Vercel Serverless 代理 — 支持服务端 ROAST_API_KEY 或客户端 BYOK
- */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+/** Vercel Serverless 代理 — 支持服务端 ROAST_API_KEY 或客户端 BYOK */
+module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
+    res.statusCode = 204
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-API-Base-URL, X-API-Model')
-    return res.status(204).end()
+    res.end()
+    return
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: { message: 'Method not allowed' } })
+    res.statusCode = 405
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: { message: 'Method not allowed' } }))
+    return
   }
 
   const cfg = resolveRequestConfig(req)
   if (!cfg) {
-    return res.status(401).json({ error: { message: '未配置 AI：请在 Vercel 设置 ROAST_API_KEY，或由用户填入 Key' } })
+    res.statusCode = 401
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: { message: '未配置 AI：请在 Vercel 设置 ROAST_API_KEY，或由用户填入 Key' } }))
+    return
   }
 
   try {
-    const parsed = typeof req.body === 'string' ? JSON.parse(req.body) : req.body ?? {}
-    const payload: Record<string, unknown> = {
+    const raw = await readBody(req)
+    const parsed = raw ? JSON.parse(raw) : {}
+    const payload = {
       model: cfg.model,
       messages: parsed.messages,
       max_tokens: parsed.max_tokens ?? 80,
@@ -45,6 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
 
     if (payload.stream && upstream.ok && upstream.body) {
+      res.statusCode = upstream.status
       res.setHeader('Content-Type', 'text/event-stream')
       res.setHeader('Cache-Control', 'no-cache')
       res.setHeader('Connection', 'keep-alive')
@@ -55,16 +62,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (done) break
         res.write(decoder.decode(value, { stream: true }))
       }
-      return res.end()
+      res.end()
+      return
     }
 
     const text = await upstream.text()
-    res.status(upstream.status)
+    res.statusCode = upstream.status
     res.setHeader('Content-Type', 'application/json')
-    return res.send(text)
+    res.end(text)
   } catch (err) {
-    return res.status(502).json({
-      error: { message: err instanceof Error ? err.message : '代理请求失败' },
-    })
+    res.statusCode = 502
+    res.setHeader('Content-Type', 'application/json')
+    res.end(
+      JSON.stringify({
+        error: { message: err instanceof Error ? err.message : '代理请求失败' },
+      })
+    )
   }
 }
