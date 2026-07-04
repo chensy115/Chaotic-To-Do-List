@@ -18,8 +18,8 @@ import { useStats } from './hooks/useStats'
 import { useTasks } from './hooks/useTasks'
 import type { Stats, Task } from './types'
 import { getEventRoast } from './utils/aiRoast'
-import { loadApiConfig, saveApiConfig, canUseAi, aiProviderLabel, type ApiConfig } from './utils/apiConfig'
-import { fetchServerAiStatus, type ServerAiStatus } from './utils/serverAi'
+import { loadApiConfig, canUseAi, aiProviderLabel, isServerAiPending, type ApiConfig } from './utils/apiConfig'
+import { getServerAiStatus, type ServerAiStatus } from './utils/serverAi'
 import { sortActiveTasksByRot } from './utils/sortTasks'
 import {
   applyTheme,
@@ -84,7 +84,7 @@ export default function App() {
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>(() => loadDailySnapshots())
   const [challenge, setChallenge] = useState<DailyChallenge>(() => getOrCreateDailyChallenge())
   const [challengeDismissed, setChallengeDismissed] = useState(false)
-  const [serverAi, setServerAi] = useState<ServerAiStatus | null>(null)
+  const [serverAi] = useState<ServerAiStatus | null>(() => getServerAiStatus())
 
   const flashMood = useCallback((mood: MascotMood, ms = 2000) => {
     setMoodOverride(mood)
@@ -133,18 +133,6 @@ export default function App() {
   }, [stats, tasks, notifyNewBadges])
 
   usePwaInstallHint(setToast)
-
-  useEffect(() => {
-    fetchServerAiStatus().then((status) => {
-      setServerAi(status)
-      if (!status.available) return
-      const cfg = loadApiConfig()
-      if (cfg.enabled) return
-      const next = { ...cfg, enabled: true }
-      saveApiConfig(next)
-      setApiConfig(next)
-    })
-  }, [])
 
   const pushBattleReport = useCallback(
     (text: string, taskId?: string) => {
@@ -321,6 +309,7 @@ export default function App() {
   }
 
   const aiConnected = canUseAi(apiConfig, serverAi)
+  const aiPending = isServerAiPending(serverAi)
   const showActions =
     !chat.loading && chat.chatMessages.some((m) => m.role === 'ai') && !!chat.pendingTask
   const streamingRoast = chat.loading && !!chat.roast
@@ -336,11 +325,13 @@ export default function App() {
             <h1>赛博抬杠待办</h1>
           </div>
           <div className="header-actions">
-            <span className={`status-badge ${aiConnected ? 'is-live' : ''}`}>
+            <span className={`status-badge ${aiConnected ? 'is-live' : aiPending ? '' : ''}`}>
               <span className="status-dot" />
-              {aiConnected
-                ? `AI · ${aiProviderLabel(apiConfig, serverAi)}`
-                : '本地抬杠'}
+              {aiPending
+                ? 'AI · 连接中'
+                : aiConnected
+                  ? `AI · ${aiProviderLabel(apiConfig, serverAi)}`
+                  : '本地抬杠'}
             </span>
             <button
               type="button"

@@ -117,9 +117,14 @@ export function isApiConfigured(config: ApiConfig): boolean {
 
 /** 服务端托管或用户自配 Key 时均可使用 AI */
 export function canUseAi(config: ApiConfig, serverAi?: ServerAiStatus | null): boolean {
+  if (serverAi?.available) return config.enabled
   if (!config.enabled) return false
-  if (serverAi?.available) return true
   return isUserApiConfigured(config)
+}
+
+/** 托管 AI 是否仍在检测中（避免误显示「本地抬杠」） */
+export function isServerAiPending(serverAi: ServerAiStatus | null | undefined): boolean {
+  return serverAi === null || serverAi === undefined
 }
 
 /** 合并服务端与用户配置，供请求头 / Qwen 判断使用 */

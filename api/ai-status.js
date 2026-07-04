@@ -5,7 +5,7 @@ export default function handler(_req, res) {
   const server = resolveServerConfig()
 
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Cache-Control', 'public, max-age=60')
+  res.setHeader('Cache-Control', 'no-store')
   res.setHeader('Content-Type', 'application/json')
 
   if (!server) {

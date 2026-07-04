@@ -10,7 +10,7 @@ import {
 import { generateRoast } from './roastEngine'
 import { buildRoastMessages } from './prompts'
 import { cancelStreamText, streamText } from './streamText'
-import { getServerAiStatus } from './serverAi'
+import { getServerAiStatus, fetchServerAiStatus } from './serverAi'
 
 export interface RoastResult {
   text: string
@@ -154,10 +154,12 @@ export async function getRoast(
   ctx: RoastContext,
   onChunk?: (text: string) => void
 ): Promise<RoastResult> {
+  await fetchServerAiStatus()
   const serverAi = getServerAiStatus()
-  const config = resolveEffectiveApiConfig(loadApiConfig(), serverAi)
+  const userConfig = loadApiConfig()
+  const config = resolveEffectiveApiConfig(userConfig, serverAi)
 
-  if (!canUseAi(loadApiConfig(), serverAi)) {
+  if (!canUseAi(userConfig, serverAi)) {
     return deliverLocalRoast(ctx, onChunk)
   }
 
@@ -178,6 +180,7 @@ export async function getRoast(
 /** 战场事件旁白（完成 / 甩锅）；默认本地，开启 fullAiMode 且已配置 AI 时走 API */
 export async function getEventRoast(ctx: RoastContext): Promise<RoastResult> {
   cancelStreamText()
+  await fetchServerAiStatus()
   const serverAi = getServerAiStatus()
   const userConfig = loadApiConfig()
   const useAi = canUseAi(userConfig, serverAi) && userConfig.fullAiMode && ctx.event
@@ -191,6 +194,7 @@ export async function getEventRoast(ctx: RoastContext): Promise<RoastResult> {
 
 /** 测试 API 连通性 */
 export async function testApiConnection(config: ApiConfig): Promise<{ ok: boolean; message: string }> {
+  await fetchServerAiStatus()
   const serverAi = getServerAiStatus()
   const effective = resolveEffectiveApiConfig(config, serverAi)
 
