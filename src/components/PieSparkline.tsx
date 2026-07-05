@@ -4,48 +4,58 @@ interface Props {
   snapshots: DailySnapshot[]
 }
 
+const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'] as const
+
+/** 画饼指数 → 单日 emoji（与 getPieComment 区间对齐） */
+export function pieIndexToEmoji(pieIndex: number | null): string {
+  if (pieIndex == null) return '·'
+  if (pieIndex >= 85) return '🔥'
+  if (pieIndex >= 60) return '🥞'
+  if (pieIndex >= 35) return '😎'
+  return '🐟'
+}
+
+function weekdayLabel(dateKey: string): string {
+  return WEEKDAY[new Date(`${dateKey}T12:00:00`).getDay()]
+}
+
+function dayTitle(dateKey: string, pieIndex: number | null): string {
+  const label = pieIndex == null ? '无数据' : `${pieIndex}%`
+  return `${dateKey.slice(5)} 周${weekdayLabel(dateKey)}: ${label}`
+}
+
 export function PieSparkline({ snapshots }: Props) {
   const points = getLast7DayPiePoints(snapshots)
-  const w = 120
-  const h = 32
-  const max = 100
-  const step = w / Math.max(1, points.length - 1)
-
-  const coords = points.map((p, i) => {
-    const v = p.pieIndex ?? 0
-    const x = i * step
-    const y = h - (v / max) * h
-    return `${x},${y}`
-  })
-
-  const polyline = coords.join(' ')
+  const ariaLabel = points
+    .map((p) => {
+      const wd = weekdayLabel(p.date)
+      const v = p.pieIndex == null ? '无数据' : `${p.pieIndex}%`
+      return `${p.date.slice(5)}周${wd}${v}`
+    })
+    .join('，')
 
   return (
-    <div className="pie-sparkline" title="近 7 日画饼指数">
+    <div className="pie-sparkline">
       <span className="pie-sparkline-label">7 日画饼</span>
-      <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
-        <polyline
-          fill="none"
-          stroke="var(--neon-cyan)"
-          strokeWidth="2"
-          strokeLinejoin="round"
-          points={polyline}
-        />
-        {points.map((p, i) => {
-          const v = p.pieIndex ?? 0
+      <div className="pie-sparkline-days" role="img" aria-label={`近 7 日画饼：${ariaLabel}`}>
+        {points.map((p) => {
+          const empty = p.pieIndex == null
           return (
-            <circle
+            <span
               key={p.date}
-              cx={i * step}
-              cy={h - (v / max) * h}
-              r="2.5"
-              fill={p.pieIndex == null ? 'var(--text-dim)' : 'var(--neon-pink)'}
+              className={`pie-sparkline-day${empty ? ' pie-sparkline-day--empty' : ''}`}
+              title={dayTitle(p.date, p.pieIndex)}
             >
-              <title>{`${p.date.slice(5)}: ${p.pieIndex ?? '无数据'}%`}</title>
-            </circle>
+              <span className="pie-sparkline-emoji" aria-hidden="true">
+                {pieIndexToEmoji(p.pieIndex)}
+              </span>
+              <span className="pie-sparkline-wd" aria-hidden="true">
+                {weekdayLabel(p.date)}
+              </span>
+            </span>
           )
         })}
-      </svg>
+      </div>
     </div>
   )
 }

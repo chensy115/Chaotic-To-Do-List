@@ -127,6 +127,122 @@ const PERSIST_ROASTS = [
   '加吧加吧，反正逃跑按钮不会放过你的。',
 ]
 
+/** 第 2 轮：按任务关键词定制（须与第 1 轮关键词句不同角度） */
+const KEYWORD_PERSIST_ROASTS: Array<{ pattern: RegExp; roasts: string[] }> = [
+  {
+    pattern: /背单词|单词|英语|雅思|托福|四六级|考研/i,
+    roasts: [
+      '行，单词记上了。abandon 在清单里等你报到呢。',
+      '非要背？加吧，词汇量不会因此 magically +100。',
+      '好，英语任务入库。流利说不会从待办里长出来。',
+    ],
+  },
+  {
+    pattern: /健身|跑步|运动|锻炼|瑜伽|撸铁|去 gym/i,
+    roasts: [
+      '行，运动记上了。健身卡不会因此自动续命。',
+      '加吧，跑步机可不会从清单里跑出来替你跑。',
+      '好，又一条流汗计划。汗得你自己流。',
+    ],
+  },
+  {
+    pattern: /学习|看书|复习|刷题|写作业|论文/i,
+    roasts: [
+      '行，学习记上了。塑封不会因此自己撕开。',
+      '非要学？加吧，deadline 可不会因此往后挪。',
+      '好，知识入库。脑子还得你自己打开。',
+    ],
+  },
+  {
+    pattern: /早起|闹钟|6点|七点|晨练/i,
+    roasts: [
+      '行，早起记上了。闹钟明天照样被你按掉。',
+      '加吧，被窝不会因此提前放人。',
+    ],
+  },
+  {
+    pattern: /减肥|节食|少吃|戒糖|戒奶茶/i,
+    roasts: [
+      '行，减肥记上了。奶茶不会因为加了待办就变无糖。',
+      '加吧，体重秤可不会因为清单多一条就少一斤。',
+    ],
+  },
+  {
+    pattern: /加班|工作|开会|汇报|ppt/i,
+    roasts: [
+      '行，加班记上了。老板不会因此给你发锦旗。',
+      '加吧，PPT 不会因此少改一版。',
+    ],
+  },
+  {
+    pattern: /打扫|收拾|整理|洗碗|拖地|洗衣服/i,
+    roasts: [
+      '行，打扫记上了。灰尘不会因为入库就消失。',
+      '加吧，房间不会因此自己变干净。',
+    ],
+  },
+  {
+    pattern: /日本|旅游|旅行|出国|机票|攒钱/i,
+    roasts: [
+      '行，记上了。机票不会因此打折。',
+      '加吧，护照可不会因为待办多一条就办下来。',
+      '好，旅行计划入库。钱还得你自己攒。',
+    ],
+  },
+]
+
+/** 第 2 轮：把任务名嵌进句子里，避免万金油 */
+function buildTaskPersistRoasts(task: string): string[] {
+  const snippet = task.length > 14 ? `${task.slice(0, 14)}…` : task
+  return [
+    `行，「${snippet}」记上了。做了才算数，入库不算。`,
+    `非要加「${snippet}」？逃跑按钮可不会手软。`,
+    `好，${snippet}入库。完成率我盯着呢。`,
+    `你赢了，但「${snippet}」不会因此变简单。`,
+    `加吧，${snippet}——清单又不会自己变短。`,
+  ]
+}
+
+function matchKeywordPersist(task: string): string | null {
+  for (const { pattern, roasts } of KEYWORD_PERSIST_ROASTS) {
+    if (pattern.test(task)) return pick(roasts)
+  }
+  return null
+}
+
+function generatePersistRoast(ctx: RoastContext): string {
+  const keyword = matchKeywordPersist(ctx.task)
+  if (keyword) return keyword
+
+  const activeCount = ctx.activeTaskCount ?? ctx.existingTasks.length
+  if (activeCount >= 5 && Math.random() > 0.4) {
+    const stackPersist = [
+      `行，第 ${activeCount + 1} 条了。你是来搞收藏的吧。`,
+      `加吧，${activeCount} 条待办看着你呢，清单不会自己变短。`,
+      `好，又堆一条。前面的 ${activeCount} 个可不会因此消失。`,
+    ]
+    return pick(stackPersist)
+  }
+
+  if (isDuplicateTask(ctx.task, ctx.existingTasks) && Math.random() > 0.35) {
+    const dupPersist = [
+      '行，又加一遍。记忆七秒实锤了。',
+      '非要重复入库？Ctrl+C Ctrl+V 是吧。',
+      '好，同一张饼画两次，不会更香。',
+    ]
+    return pick(dupPersist)
+  }
+
+  if ((ctx.totalSnoozes ?? 0) >= 3 && Math.random() > 0.45) {
+    return pick([
+      `行，甩锅 ${ctx.totalSnoozes} 次了还头铁，加吧。`,
+      '好，甩锅惯犯又加任务，旧账可不会因此清零。',
+    ])
+  }
+
+  return pick([...buildTaskPersistRoasts(ctx.task), ...PERSIST_ROASTS])
+}
+
 const DUPLICATE_ROASTS = [
   '你又来了？这个任务你加过吧，记忆只有七秒？',
   '似曾相识的任务出现了——上次那个还在列表里躺着呢。',
@@ -197,7 +313,7 @@ export function generateRoast(ctx: RoastContext): string {
   } else if (ctx.event === 'snooze') {
     text = generateSnoozeTaunt(ctx)
   } else if (ctx.attemptCount > 1) {
-    text = pick(PERSIST_ROASTS)
+    text = generatePersistRoast(ctx)
   } else if (isDuplicateTask(ctx.task, ctx.existingTasks)) {
     text = pick(DUPLICATE_ROASTS)
   } else {

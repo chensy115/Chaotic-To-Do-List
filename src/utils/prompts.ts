@@ -62,6 +62,22 @@ ${FACT_GROUNDING}
 - 待办 ≥5 个：重点怼「加更多也不会做」
 - 累计甩锅多：可顺带嘲讽「甩锅惯犯还加任务」（次数以消息为准）`
 
+/** 第 2 轮随机角度，降低万金油句式复读 */
+const PERSIST_ANGLES = [
+  '拿任务名里的具体词打个比方（如攒钱→钱包、背单词→ abandon）',
+  '嘲讽「记进清单≠做了」，登记行为本身很可笑',
+  '威胁逃跑按钮会很难抓',
+  '吐槽完成率/执行力，但须挂钩任务内容',
+  '认栽式让步：你赢了，但这事不会因此变简单',
+  '若有堆满的待办，顺带怼清单越来越长',
+  '若有重复任务标记，顺带怼又加一遍',
+  '若有甩锅记录，顺带怼甩锅惯犯还头铁',
+]
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
 /** 第 2 轮 — 用户已点「我偏要加」，必须与第 1 轮完全不同 */
 export const PERSIST_SYSTEM_PROMPT = `你是「赛博抬杠待办」里的毒舌 NPC。用户听完你第一轮劝退，刚点了「我偏要加」。
 
@@ -69,16 +85,17 @@ ${FACT_GROUNDING}
 
 ## 这一轮的目标（与上一轮必须判若两人）
 - 1 句，40 字以内，中文口语
-- 语气：稍微让步（「行吧」「头真铁」），但仍不建议、不真鼓励
-- 换全新角度：头铁、登记进清单、完成率、逃跑按钮、清单不会自己变短
+- **必须**用到「想加的任务」里的至少一个词或动作，不能只输出万金油（头铁/完成率/逃跑按钮三件套）
+- 语气：稍微让步（「行吧」「服了」），但仍不建议、不真鼓励
+- 按用户消息里指定的「这次角度」来写，别默认套模板
 - 严禁重复上一轮：相同开头、相同句式、相同关键词、同义改写都不行
 - 严禁再提：具体几点、第一页、上个月、昨天背、以及上一轮编造的任何「旧任务」
 - 禁止 markdown、引号、自称 AI
 
-## 好例子
-- 行，你头真铁。加吧，反正逃跑按钮不会放过你。
-- 非要加？完成率我帮你记着呢，到时候别哭。
-- 你赢了这一局，但去日本不会因此变近。`
+## 好例子（角度各异，别总抄第一句）
+- 「去日本」记上了，机票不会因此打折。
+- 一百个单词？行，abandon 欢迎你回来报到。
+- 清单都 {N} 条了还加，你是来搞收藏的吧。`
 
 export const COMPLETE_SYSTEM_PROMPT = `你是「赛博抬杠待办」里的毒舌 NPC。用户刚抓住逃跑按钮、完成了任务。
 
@@ -132,11 +149,25 @@ function buildAddTaskUserMessage(ctx: RoastContext): string {
 
 /** 第 2 轮追加的用户消息 */
 export function buildRetryUserMessage(ctx: RoastContext): string {
+  const activeCount = ctx.activeTaskCount ?? ctx.activeTaskTexts?.length ?? ctx.existingTasks.length
+  const duplicate = isDuplicateTask(ctx.task, ctx.existingTasks)
+  const angle = pick(PERSIST_ANGLES)
+
+  const flags: string[] = []
+  if (duplicate) flags.push('与已有任务重复')
+  if (activeCount >= 5) flags.push(`活跃待办 ${activeCount} 个`)
+  if ((ctx.totalSnoozes ?? 0) >= 3) flags.push(`累计甩锅 ${ctx.totalSnoozes} 次`)
+
   return [
     '用户刚点了「我偏要加」，头很铁，还要加这条任务。',
-    `任务：${ctx.task}`,
-    '换完全不同的吐槽角度；禁止重复你上一句的结构和用词；禁止再提具体几点、第一页、上个月、昨天背。',
-  ].join('\n')
+    `想加的任务：${ctx.task}`,
+    `已有待办：${formatActiveTasks(ctx)}`,
+    flags.length > 0 ? `注意：${flags.join('；')}` : '',
+    `这次角度：${angle}`,
+    '必须点名任务里的具体词；禁止万金油套话；禁止重复上一句结构和用词；禁止再提具体几点、第一页、上个月、昨天背。',
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 /** 每次请求时拼给 AI 的用户侧上下文（只提供事实，不下达「请xxx」式指令） */

@@ -19,6 +19,11 @@ const BUTTON_H = 40
 const DEFAULT_SURRENDER_AT = 10
 const MOVE_THRESHOLD = 12
 
+function isTouchDevice() {
+  if (typeof window === 'undefined') return false
+  return navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches
+}
+
 export function EscapingCheckbox({
   onComplete,
   disabled,
@@ -47,8 +52,9 @@ export function EscapingCheckbox({
     startY: 0,
   })
 
-  const effectiveRadius = mobile ? fleeRadius * 0.85 : fleeRadius
-  const touchPadding = mobile ? 28 : 0
+  const touchMode = mobile || isTouchDevice()
+  const effectiveRadius = touchMode ? fleeRadius * 0.85 : fleeRadius
+  const touchPadding = touchMode ? 28 : 0
 
   const randomPos = useCallback(
     (cursorX?: number, cursorY?: number) => {
@@ -137,7 +143,7 @@ export function EscapingCheckbox({
       const t = e.touches[0]
       if (!t) return
       const g = gestureRef.current
-      if (mobile && g.active) {
+      if (touchMode && g.active) {
         const moved = Math.hypot(t.clientX - g.startX, t.clientY - g.startY)
         if (moved > MOVE_THRESHOLD) g.moved = true
       }
@@ -150,10 +156,10 @@ export function EscapingCheckbox({
       arena.removeEventListener('mousemove', onMouseMove)
       arena.removeEventListener('touchmove', onTouchMove)
     }
-  }, [disabled, caught, fleeIfNear, mobile])
+  }, [disabled, caught, fleeIfNear, touchMode])
 
   useEffect(() => {
-    if (!mobile || disabled || caught) return
+    if (!touchMode || disabled || caught) return
 
     const arena = arenaRef.current
     if (!arena) return
@@ -164,6 +170,8 @@ export function EscapingCheckbox({
 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType !== 'touch') return
+      e.preventDefault()
+      arena.setPointerCapture(e.pointerId)
 
       gestureRef.current = {
         active: true,
@@ -195,7 +203,12 @@ export function EscapingCheckbox({
     }
 
     const onPointerUp = (e: PointerEvent) => {
-      if (e.pointerType !== 'touch' || !gestureRef.current.active) {
+      if (e.pointerType !== 'touch') return
+      if (arena.hasPointerCapture(e.pointerId)) {
+        arena.releasePointerCapture(e.pointerId)
+      }
+
+      if (!gestureRef.current.active) {
         resetGesture()
         return
       }
@@ -227,7 +240,7 @@ export function EscapingCheckbox({
       arena.removeEventListener('pointerup', onPointerUp)
       arena.removeEventListener('pointercancel', onPointerUp)
     }
-  }, [mobile, disabled, caught, fleeIfNear, isOnButton])
+  }, [touchMode, disabled, caught, fleeIfNear, isOnButton])
 
   const finishRef = useRef(() => {})
   const finish = useCallback(
@@ -245,7 +258,8 @@ export function EscapingCheckbox({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (mobile) {
+    e.preventDefault()
+    if (touchMode) {
       if (suppressClickRef.current) {
         suppressClickRef.current = false
       }
@@ -264,7 +278,7 @@ export function EscapingCheckbox({
 
   return (
     <div
-      className={`escape-arena ${glitch ? 'escape-arena--glitch' : ''} ${mobile ? 'escape-arena--mobile' : ''}`}
+      className={`escape-arena ${glitch ? 'escape-arena--glitch' : ''} ${touchMode ? 'escape-arena--mobile' : ''}`}
       ref={arenaRef}
       style={{ height: arenaHeight }}
     >

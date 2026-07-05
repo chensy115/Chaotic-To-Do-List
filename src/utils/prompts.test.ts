@@ -44,8 +44,10 @@ describe('buildRoastMessages', () => {
     expect(msgs[1].content).toMatch(/禁止编造/)
   })
 
-  it('retry user message forbids time repetition', () => {
+  it('retry user message forbids time repetition and includes angle', () => {
     const text = buildRetryUserMessage({ ...baseCtx, attemptCount: 2 })
     expect(text).toMatch(/禁止再提具体几点/)
+    expect(text).toMatch(/这次角度/)
+    expect(text).toMatch(/一百个单词/)
   })
 })

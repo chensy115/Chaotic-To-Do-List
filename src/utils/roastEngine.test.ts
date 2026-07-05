@@ -26,6 +26,17 @@ describe('generateRoast', () => {
       existingTasks: [],
     })
     expect(text.length).toBeGreaterThan(0)
+    expect(text).toMatch(/跑步|运动|入库|记上|加吧|逃跑|流汗|健身|跑步机|汗/)
+  })
+
+  it('persist roast mentions task-specific words', () => {
+    const text = generateRoast({
+      task: '攒钱去日本',
+      hour: 10,
+      attemptCount: 2,
+      existingTasks: [],
+    })
+    expect(text).toMatch(/日本|机票|攒|入库|记上/)
   })
 
   it('returns duplicate roast for repeated task', () => {

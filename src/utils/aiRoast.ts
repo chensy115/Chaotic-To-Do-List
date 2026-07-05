@@ -39,7 +39,7 @@ function buildRequestBody(ctx: RoastContext, config: ApiConfig, stream: boolean)
     messages: buildRoastMessages(ctx),
     // 中文 1–3 句常超过 80 token；过低会在句中硬截断
     max_tokens: ctx.event ? 100 : ctx.attemptCount > 1 ? 80 : 180,
-    temperature: ctx.attemptCount > 1 ? 0.92 : 0.85,
+    temperature: ctx.attemptCount > 1 ? 1.0 : 0.85,
     stream,
   }
 
